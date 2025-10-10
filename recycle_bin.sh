@@ -15,11 +15,7 @@ initialyze_recyclebin(){
 	mkdir "$RECYCLE_BIN_DIR/files"
 	touch "$METADATA_FILE"
 	touch "$RECYCLE_BIN_DIR/config"
-<<<<<<< Updated upstream
-	touch "$RECYCLE_BIN_DIR/metadata.log"	
-=======
 	touch "$RECYCLE_BIN_DIR/recyclebin.log"	
->>>>>>> Stashed changes
 }
 
 ################################
