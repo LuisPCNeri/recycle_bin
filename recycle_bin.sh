@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# HOURS SPENT: 3
+#i HOURS SPENT: 4
 # Please do update the counter :)
 
 # GLOBAL VARIABLES
