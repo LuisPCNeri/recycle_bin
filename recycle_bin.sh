@@ -2,6 +2,7 @@
 
 #i HOURS SPENT: 4
 # Please do update the counter :)
+#TS WILL ACTUALLY MAKE ME KMS HOLYYY
 
 # GLOBAL VARIABLES
 RECYCLE_BIN_DIR="$HOME/.recycle_bin"
@@ -13,15 +14,24 @@ initialyze_recyclebin(){
 	mkdir "$RECYCLE_BIN_DIR"
 	mkdir "$RECYCLE_BIN_DIR/files"
 	touch "$METADATA_FILE"
-	touch "$RECYCLE_BIN_DIR/config"	
+	touch "$RECYCLE_BIN_DIR/config"
+	touch "$RECYCLE_BIN_DIR/metadata.log"	
 }
+
+################################
+#FUNCTION: delete_file
+#Description: Moves all files or directories given as an argument to .recycle_bin/files/ and writes important file data to the metadata.db file whilst logging it in the metadata.log
+#PARAMETERS: $@ Should be any number of arguments but they MUST be a file or directory (Empty or non empty both work)
+#RETURNS: 0 on success and -1 on failure
+################################
 
 delete_file(){
 	#Func to move file from source to recycle bin writing its information to the metadata.db file
 
 	for file in $@; do
 		if ! [[ -f $file || -d $file ]]; then
-			echo "Argument must be a file or directory"	       
+			echo "All arguments given MUST be files or directories"
+	 		echo "$file is NOT a file or directory"		
 			exit -1
 		fi
 
