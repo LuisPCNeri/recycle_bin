@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# HOURS SPENT: 5
+# HOURS SPENT: 6
 # Please do update the counter :)
 # TS WILL ACTUALLY MAKE ME KMS HOLYYY
 
@@ -32,6 +32,9 @@ delete_file(){
 		if ! [[ -f $file || -d $file ]]; then
 			echo "All arguments given MUST be files or directories"
 	 		echo "$file is NOT a file or directory"		
+			exit -1
+		elif [[ "${recursive_file##*/}" == ".recycle_bin" ]]; then
+			echo "Must not delete the recycle bin structure."
 			exit -1
 		fi
 
@@ -65,7 +68,7 @@ delete_file(){
 		fi
 
 		# Gets ALL file metadata
-		permissions=$(stat -c %a $recursive_file)
+		permissions=$(stat -c %a $file)
                 file_creator=$(stat -c %U:%G $file)
                 deletion_time_stamp=$(date "+%Y-%m-%d %H:%M:%S")
                 original_path=$(realpath $file)
@@ -87,9 +90,25 @@ delete_file(){
 
 		# Moves file to recycle bin
 		mv $file "$RECYCLE_BIN_DIR/files/"
-		echo "Moved $file from $ORIGINAL_PATH to $RECYCLE_BIN_DIR/files"
+		echo "Moved $file from $original_path to $RECYCLE_BIN_DIR/files"
 	done
 	return 0
+}
+
+#############################
+# FUNCTION: display_help
+# DESCRIPTION: Shows information on how the script is used with examples and all options available
+# PARAMETERS: None, again it is just an help function to show the script should be used and well... help
+# RETURNS: 0 ig doubt the HELP func fails
+############################
+
+display_help(){
+	# Main script explanation HERE
+	echo -e "Usage: ./recycle_bin.sh [OPTION] [FILE]..\nDoes everything a recycle bin should do I hope THIS MUST BE MADE BETTER\n"
+	# initialyze_recyclebin help
+	echo "-i, init			Creates the recycle bin directory in your working directory"
+	# delete func help
+	echo "-d, delete		Move all files or directories to the recycle bin"
 }
 
 #############################
@@ -105,10 +124,20 @@ main(){
 	# DEFAULT OPTION will be the delete option to remove the specified files
 	
 	case "$1" in
-		"delete")
+		"init"|"-i")
+			# initialyze_recyclebin option
+			# Creates the .recycle_bin structure in the user's pc more specifically the working directory
+			initialyze_recyclebin
+			;;
+		"delete"|"-d")
 			# delete option
 			# Passes all args BUT THE FIRST (as the first IS the option used)  to the delete_file func
 			delete_file "${@:2}"
+			;;
+		"--help")
+			# help Option
+			# Takes no args because well it is just an help option
+			display_help
 			;;
 		*)
 			# As no options are give it will be assumed that the option IS the delete option
