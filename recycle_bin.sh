@@ -18,79 +18,86 @@ initialyze_recyclebin(){
 	touch "$RECYCLE_BIN_DIR/recyclebin.log"	
 }
 
+####################
+# FUNCTION: get_file_metadata
+# DESCRIPTION: Gets the metadata from the given file and writes it to the metadata.db file in the recycle bin
+# PARAMETERS: $1 should be a file or directory, only takes one argument
+# RETURNS: 0 on success
+###################
+get_file_metadata(){
+	file="$1"
+
+	# Get all metadata from each file
+        permissions=$(stat -c %a $file)
+        file_creator=$(stat -c %U:%G $file)
+        deletion_time_stamp=$(date "+%Y-%m-%d %H:%M:%S")
+        original_path=$(realpath $file)
+        file_name="${file##*/}"
+        file_size=$(stat -c %s $file)
+        file_type=$(file $file)
+
+        # Write to metadata.db file
+        # Checks if METADATA_FILE is empty and if so gives the first file an ID of 1
+        if [ -s $METADATA_FILE ]; then
+        	file_id=$(tail -1 $METADATA_FILE | cut -d "," -f1)
+                echo "$((file_id+1)),$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> $METADATA_FILE
+                echo "Created data: $((file_id+1)),$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator"
+        else
+                file_id="1"
+                echo "$file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> $METADATA_FILE
+                echo "Created data: $file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator"
+
+        fi
+
+}
+
+###############################
+# FUNCTION: collect_metadata_recursively
+# DESCRIPTION: Loops through all the files given in the delete_file function recursively, including directories
+# PARAMETERS: $1 should be a file or directory
+# RETURNS: 0 on success, -1 on failure
+##############################
+collect_metadata_recursively(){
+	file="$1"
+        if ! [[ -f $file || -d $file ]]; then
+        	echo "All arguments given MUST be files or directories"
+                echo "$file is NOT a file or directory"         
+                exit -1
+        elif [[ "${file##*/}" == ".recycle_bin" ]]; then
+                echo "Must not delete the recycle bin structure."
+                exit -1
+        fi
+        # Checks if arguments is a directory and if it is NOT empty then removes adds to recycle bin
+        if [[ -d $file ]]; then
+		local dir="$file"
+		# Goes through each file in the directory and gets it's metadata
+                for recursive_file in "$file"/*; do
+                        [[ ! -e "$recursive_file" ]] && continue
+                        collect_metadata_recursively $recursive_file
+            	done
+		# Gets the directory's metadata
+		get_file_metadata "$dir"
+	else
+		# Gets the metadata from files in the directory
+		get_file_metadata "$file"
+        fi
+	return 0
+}
+
 ################################
 # FUNCTION: delete_file
 # Description: Moves all files or directories given as an argument to .recycle_bin/files/ and writes important file data to the metadata.db file whilst logging it in the metadata.log
 # PARAMETERS: $@ Should be any number of arguments but they MUST be a file or directory (Empty or non empty both work)
 # RETURNS: 0 on success and -1 on failure
 ################################
-
 delete_file(){
 	# Func to move file from source to recycle bin writing its information to the metadata.db file
-
 	for file in $@; do
-		if ! [[ -f $file || -d $file ]]; then
-			echo "All arguments given MUST be files or directories"
-	 		echo "$file is NOT a file or directory"		
-			exit -1
-		elif [[ "${recursive_file##*/}" == ".recycle_bin" ]]; then
-			echo "Must not delete the recycle bin structure."
-			exit -1
-		fi
-
-		# Checks if arguments is a directory and if it is NOT empty then removes adds to recycle bin
-		if [[ -d $file ]];then
-			# If it is a directory most create METADATA for all files inside
-			for recursive_file in $file/*; do
-				echo $recursive_file
-				# Get all metadata from each file
-				permissions=$(stat -c %a $recursive_file)
-				file_creator=$(stat -c %U:%G $recursive_file)
-				deletion_time_stamp=$(date "+%Y-%m-%d %H:%M:%S")
-				original_path=$(realpath $recursive_file)
-				file_name="${recursive_file##*/}"
-				file_size=$(stat -c %s $recursive_file)
-				file_type=$(file $recursive_file)
-
-				# Write to metadata.db file
-				# Checks if METADATA_FILE is empty and if so gives the first file an ID of 1
-				if [ -s $METADATA_FILE ]; then
-					file_id=$(tail -1 $METADATA_FILE | cut -d "," -f1)
-                                        echo "$((file_id+1)),$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> $METADATA_FILE
-					echo "Created data: $((file_id+1)),$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator"
-				else
-					file_id="1"
-                                        echo "$file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> $METADATA_FILE
-                                        echo "Created data: $file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator"
-
-				fi
-			done
-		fi
-
-		# Gets ALL file metadata
-		permissions=$(stat -c %a $file)
-                file_creator=$(stat -c %U:%G $file)
-                deletion_time_stamp=$(date "+%Y-%m-%d %H:%M:%S")
-                original_path=$(realpath $file)
-                file_name="${file##*/}"
-                file_size=$(stat -c %s $file)
-                file_type=$(file $file)
-
-		# Checks if METADATA_FILE is empty and if so gives the first file an ID of 1
-                if [ -s $METADATA_FILE ]; then
-               		 file_id=$(tail -1 $METADATA_FILE | cut -d "," -f1)
-                         echo "$(($file_id+1)),$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> $METADATA_FILE
-                         echo "Created data: $(($file_id+1)),$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator"
-                else
-                         file_id="1"
-                         echo "$file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> $METADATA_FILE
-                         echo "Created data: $file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator"
-
-                fi
-
-		# Moves file to recycle bin
-		mv $file "$RECYCLE_BIN_DIR/files/"
-		echo "Moved $file from $original_path to $RECYCLE_BIN_DIR/files"
+		# Just moves the files from their original location to the recycle bin
+		local dir="$file"
+		collect_metadata_recursively "$file"
+		mv "$dir" "$RECYCLE_BIN_DIR/files/"
+		echo "Moved $dir from $(realpath $dir) to $RECYCLE_BIN_DIR/files"
 	done
 	return 0
 }
@@ -101,7 +108,6 @@ delete_file(){
 # PARAMETERS: None, again it is just an help function to show the script should be used and well... help
 # RETURNS: 0 ig doubt the HELP func fails
 ############################
-
 display_help(){
 	# Main script explanation HERE
 	echo -e "Usage: ./recycle_bin.sh [OPTION] [FILE]..\nDoes everything a recycle bin should do I hope THIS MUST BE MADE BETTER\n"
@@ -117,7 +123,6 @@ display_help(){
 # PARAMETERS: $1 is the script option (by default option will be delete) "${$@:2}" will be the function params
 # RETURNS: 0 on success, -1 on failure
 #############################
-
 main(){
 
 	# Will be a MASSIVE case statement as for I know not of a better way to check for ALL options
@@ -146,5 +151,4 @@ main(){
 			;;
 	esac
 }
-
 main $@
