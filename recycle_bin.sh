@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# HOURS SPENT: 6
+# HOURS SPENT: 7
 # Please do update the counter :)
 # TS WILL ACTUALLY MAKE ME KMS HOLYYY
 
@@ -26,7 +26,7 @@ initialyze_recyclebin(){
 ###################
 get_file_metadata(){
 	file="$1"
-
+	file_id="0"
 	# Get all metadata from each file
         permissions=$(stat -c %a $file)
         file_creator=$(stat -c %U:%G $file)
@@ -42,13 +42,14 @@ get_file_metadata(){
         	file_id=$(tail -1 $METADATA_FILE | cut -d "," -f1)
                 echo "$((file_id+1)),$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> $METADATA_FILE
                 echo "Created data: $((file_id+1)),$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator"
+		mv "$file" "${file%/*}/$((file_id+1))"
         else
                 file_id="1"
                 echo "$file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> $METADATA_FILE
                 echo "Created data: $file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator"
-
+		mv "$file" "${file%/*}/$file_id"
         fi
-
+	return "$((file_id + 1))"
 }
 
 ###############################
@@ -58,7 +59,9 @@ get_file_metadata(){
 # RETURNS: 0 on success, -1 on failure
 ##############################
 collect_metadata_recursively(){
-	file="$1"
+	local file_id="0"
+	local file="$1"
+	local dir="$1"
         if ! [[ -f $file || -d $file ]]; then
         	echo "All arguments given MUST be files or directories"
                 echo "$file is NOT a file or directory"         
@@ -69,7 +72,6 @@ collect_metadata_recursively(){
         fi
         # Checks if arguments is a directory and if it is NOT empty then removes adds to recycle bin
         if [[ -d $file ]]; then
-		local dir="$file"
 		# Goes through each file in the directory and gets it's metadata
                 for recursive_file in "$file"/*; do
                         [[ ! -e "$recursive_file" ]] && continue
@@ -77,11 +79,14 @@ collect_metadata_recursively(){
             	done
 		# Gets the directory's metadata
 		get_file_metadata "$dir"
+		file_id="$?"
+		return "$file_id"
 	else
 		# Gets the metadata from files in the directory
 		get_file_metadata "$file"
+		file_id="$?"
         fi
-	return 0
+	return "$file_id"
 }
 
 ################################
@@ -96,7 +101,7 @@ delete_file(){
 		# Just moves the files from their original location to the recycle bin
 		local dir="$file"
 		collect_metadata_recursively "$file"
-		mv "$dir" "$RECYCLE_BIN_DIR/files/"
+		mv "${file%%/*}/$?" "$RECYCLE_BIN_DIR/files/"
 		echo "Moved $dir from $(realpath $dir) to $RECYCLE_BIN_DIR/files"
 	done
 	return 0
