@@ -121,6 +121,41 @@ display_help(){
 	# delete func help
 	echo "-d, delete		Move all files or directories to the recycle bin"
 }
+#############################
+# FUNCTION: list_recycled
+# DESCRIPTION: $1: if $1="--detailed", shows detailed listing, else, shows a compact table
+# PARAMETERS: $1 is the script option (by default option will be delete) "${$@:2}" will be the function params
+# RETURNS: 0 on success, -1 on failure
+#############################
+list_recycled() {
+	# calls the detailed version of the function if the arg is "--detailed"
+	if [[ "$2" == "--detailed" ]]; then
+		list_recycled_detailed
+		return 0
+	fi
+
+	# handles the case where the metadata_file is empty
+	if [[ ! -s "$METADATA_FILE" ]]; then
+    	echo "Recycle bin is empty."
+    	return 0
+	fi
+
+	# compact listing
+	# table header
+	printf "%-5s %-25s %-20s %-10s\n" "ID" "Name" "Date" "Size"
+	printf "%-5s %-25s %-20s %-10s\n" "-----" "-------------------------" "--------------------" "----------"
+	# printing the actual data
+	while IFS=, read -r id name path date size type perm creator; do
+    	readable_size=$(numfmt --to=iec $size) #
+    	printf "%-5s %-25s %-20s %-10s\n" "$id" "$name" "$date" "$readable_size""B"
+	done < "$METADATA_FILE"
+
+	return 0
+}
+
+list_recycled_detailed() {
+	return 0
+}
 
 #############################
 # FUNCTION: main
@@ -148,6 +183,11 @@ main(){
 			# help Option
 			# Takes no args because well it is just an help option
 			display_help
+			;;
+		"list"|"l")
+			# list option
+			# takes one argument, to choose between detailed and not detailed view
+			list_recycled
 			;;
 		*)
 			# As no options are give it will be assumed that the option IS the delete option
