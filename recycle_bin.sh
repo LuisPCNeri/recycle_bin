@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# HOURS SPENT: 8
+# HOURS SPENT: 9
+# HOURS SPENT2: ~~ Poe as tuas aqui gui
 # Please do update the counter :)
 # TS WILL ACTUALLY MAKE ME KMS HOLYYY
 
@@ -74,6 +75,7 @@ collect_metadata_recursively(){
         if [[ -d $file ]]; then
 		# Goes through each file in the directory and gets it's metadata
                 for recursive_file in "$file"/*; do
+						# If for some ungodly reason nothing exists in "$file"/* just skip over it
                         [[ ! -e "$recursive_file" ]] && continue
                         collect_metadata_recursively $recursive_file
             	done
@@ -85,7 +87,7 @@ collect_metadata_recursively(){
 		# Gets the metadata from files in the directory
 		get_file_metadata "$file"
 		file_id="$?"
-        fi
+    fi
 	return "$file_id"
 }
 
@@ -106,7 +108,69 @@ delete_file(){
 	done
 	return 0
 }
+#############################
+# FUNCTION: restore_file
+# DESCRIPTION: Restores given file to it's original location
+# PARAMETERS: $1 MUST be filename or file's id in the recycle bin
+# RETURNS: 0 on success, -1 on failure
+#############################
+restore_file(){
+	# First argument is the filename or id guess i'll have to do like a slave and check for both
+	if ! [ $1 ]; then
+		echo "Argument MUST be the name of a file or it's id in the recycle bin"
+		exit -1
+	fi
 
+	for i in $@; do
+
+		func_arg="$i"
+		# Will loop thru the metadata.db file and if it finds something that computes recover it. If not fuck you.
+		while read line;do
+			# Variable names are self explanatory if this calls for a comment i WILL kms
+			# Gets all file metadata for each file but it is whatever
+			# Should make $line into an array with the info https://stackoverflow.com/questions/10586153/how-to-split-a-string-into-an-array-in-bash 18/10/25 15:40
+			IFS=',' read -r -a file_info <<< "$line"
+			file_id="${file_info[0]}"
+			filename="${file_info[1]}"
+
+			# Checks if it is an empty line if so skips over it
+			if [[ "$line" == "" ]]; then
+				continue
+			fi
+
+			if [[ "$file_id" == "$func_arg" ]] || [[ "$filename" == "$file_arg" ]]; then
+				# Found ze file i am zerman now
+				file=$(find "$HOME/.recycle_bin/files/" -name "${file_info[0]}")
+				# File is found now to actually restore it
+				og_file_location="${file_info[2]}"
+				og_file_perms="${file_info[6]}"
+				echo "${file_info[@]}"
+
+				# Change file's name back
+				echo "Changed name from $file to ${file_info[2]%/*}/$filename"
+				mv "$file" "${file%/*}/$filename"
+				file="${file%/*}/$filename"
+				# Restore perms
+				echo "Changed perms to $og_file_perms"
+				chmod "$og_file_perms" "$file"
+				
+				# Move it back
+				echo "Restored file to ${file_info[2]%/*}/"
+				mv "$file" "${file_info[2]%/*}/"
+
+				# Erase corresponding line from file
+				# -i edits file in place ^ to match it to the start of the file so in this case ^{$file_id} anything that starts with that file id
+				# So to explain better What is between / and / is the expression so starts with $file_id and ends is a comma should be deleted
+				# That is what the d in the end does
+				# Links used:
+				# https://www.geeksforgeeks.org/linux-unix/sed-command-in-linux-unix-with-examples/
+				# https://www.geeksforgeeks.org/linux-unix/sed-command-linux-set-2/
+				sed -i "/^${file_id},/d" "$METADATA_FILE"
+			fi
+		done < "$METADATA_FILE"
+	done
+	
+}
 #############################
 # FUNCTION: display_help
 # DESCRIPTION: Shows information on how the script is used with examples and all options available
@@ -120,6 +184,8 @@ display_help(){
 	echo "-i, init			Creates the recycle bin directory in your working directory"
 	# delete func help
 	echo "-d, delete		Move all files or directories to the recycle bin"
+	# restore_file func help
+	echo "-r, restore		Restore a file or directory"
 }
 
 #############################
@@ -143,6 +209,10 @@ main(){
 			# delete option
 			# Passes all args BUT THE FIRST (as the first IS the option used)  to the delete_file func
 			delete_file "${@:2}"
+			;;
+		"restore"|"-r")
+			# restore option
+			restore_file "${@:2}"
 			;;
 		"--help")
 			# help Option
