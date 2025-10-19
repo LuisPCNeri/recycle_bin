@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# HOURS SPENT: 9
+# HOURS SPENT: 10
 # HOURS SPENT2: ~~ Poe as tuas aqui gui
 # Please do update the counter :)
 # TS WILL ACTUALLY MAKE ME KMS HOLYYY
@@ -8,6 +8,10 @@
 # GLOBAL VARIABLES
 RECYCLE_BIN_DIR="$HOME/.recycle_bin"
 METADATA_FILE="$RECYCLE_BIN_DIR/metadata.db"
+
+# Variables to help with file restoration
+RB_LOCATION=""
+OG_LOCATION=""
 
 initialyze_recyclebin(){
 	#SHOULD PROBABLY CHECK IF EXISTS PATH WITH THAT NAME
@@ -35,7 +39,14 @@ get_file_metadata(){
         original_path=$(realpath $file)
         file_name="${file##*/}"
         file_size=$(stat -c %s $file)
-        file_type=$(file $file)
+		
+		# To decide if file is a directory or file
+		file_type=''
+		if [ -d $file ]; then
+			file_type='Directory'
+		else
+			file_type='File'
+		fi
 
         # Write to metadata.db file
         # Checks if METADATA_FILE is empty and if so gives the first file an ID of 1
@@ -43,14 +54,15 @@ get_file_metadata(){
         	file_id=$(tail -1 $METADATA_FILE | cut -d "," -f1)
                 echo "$((file_id+1)),$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> $METADATA_FILE
                 echo "Created data: $((file_id+1)),$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator"
-		mv "$file" "${file%/*}/$((file_id+1))"
+				mv "$file" "${file%/*}/$((file_id+1))"
+				return "$((file_id + 1))"
         else
                 file_id="1"
                 echo "$file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> $METADATA_FILE
                 echo "Created data: $file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator"
-		mv "$file" "${file%/*}/$file_id"
+				mv "$file" "${file%/*}/$file_id"
+				return "$file_id"
         fi
-	return "$((file_id + 1))"
 }
 
 ###############################
@@ -108,6 +120,72 @@ delete_file(){
 	done
 	return 0
 }
+###########################
+# FUNCTION: restore_data
+# DESCRIPTION: Restores the file to it's original state giving it's permissions and name back
+# PARAMETERS: The name or Id of a file in the recycle bin
+# RETURNS: 0 on success, -1 on failure
+###########################
+restore_data(){
+	local func_arg="$1"
+	# Flag to determine if any match was found in the metadata file assumed false
+	local any_file_found="0"
+
+	while read line;do
+		# Variable names are self explanatory if this calls for a comment i WILL kms
+		# Gets all file metadata for each file but it is whatever
+		# Should make $line into an array with the info https://stackoverflow.com/questions/10586153/how-to-split-a-string-into-an-array-in-bash 18/10/25 15:40
+		IFS=',' read -r -a file_info <<< "$line"
+		file_id="${file_info[0]}"
+		filename="${file_info[1]}"
+
+		# Checks if it is an empty line if so skips over it
+		[[ "$line" == "" ]] && continue
+
+		# TODO Check for errors and solve them EX: file already exists in og directory
+
+		if [[ "$file_id" == "$func_arg" ]] || [[ "$filename" == "$file_arg" ]]; then
+			# A file was found so $any_file_found should now be true
+			any_file_found="1"
+			if [[ "${file_info[5]}" == 'Directory' ]]; then
+				for r_file in "$RECYCLE_BIN_DIR/files/$func_arg"/*; do
+					[[ ! -e "$r_file" ]] && continue
+					restore_data "$(basename $r_file)"
+				done
+			fi
+
+			# Found ze file i am zerman now
+			file=$(find "$HOME/.recycle_bin/files/" -name "${file_info[0]}")
+			echo "$file"
+			# File is found now to actually restore it
+			og_file_location="${file_info[2]}"
+			og_file_perms="${file_info[6]}"
+			
+			# Change file's name back
+			echo "Changed name from $file to ${file%/*}/$filename"
+			mv "$file" "${file%/*}/$filename"
+			file="${file%/*}/$filename"
+			# Restore perms
+			echo "Changed perms to $og_file_perms"
+			chmod "$og_file_perms" "$file"
+				
+			RB_LOCATION="$file"
+			OG_LOCATION="${file_info[2]%/*}/"
+
+			# Erase corresponding line from file
+			# -i edits file in place ^ to match it to the start of the file so in this case ^{$file_id} anything that starts with that file id
+			# So to explain better What is between / and / is the expression so starts with $file_id and ends is a comma should be deleted
+			# That is what the d in the end does
+			# Links used:
+			# https://www.geeksforgeeks.org/linux-unix/sed-command-in-linux-unix-with-examples/
+			# https://www.geeksforgeeks.org/linux-unix/sed-command-linux-set-2/
+			sed -i "/^${file_id},/d" "$METADATA_FILE"
+		fi
+	done < "$METADATA_FILE"
+
+	[[ "$any_file_found" -eq "0" ]] && return -1;
+	return 0
+}
 #############################
 # FUNCTION: restore_file
 # DESCRIPTION: Restores given file to it's original location
@@ -115,61 +193,12 @@ delete_file(){
 # RETURNS: 0 on success, -1 on failure
 #############################
 restore_file(){
-	# First argument is the filename or id guess i'll have to do like a slave and check for both
-	if ! [ $1 ]; then
-		echo "Argument MUST be the name of a file or it's id in the recycle bin"
-		exit -1
-	fi
-
-	for i in $@; do
-
-		func_arg="$i"
-		# Will loop thru the metadata.db file and if it finds something that computes recover it. If not fuck you.
-		while read line;do
-			# Variable names are self explanatory if this calls for a comment i WILL kms
-			# Gets all file metadata for each file but it is whatever
-			# Should make $line into an array with the info https://stackoverflow.com/questions/10586153/how-to-split-a-string-into-an-array-in-bash 18/10/25 15:40
-			IFS=',' read -r -a file_info <<< "$line"
-			file_id="${file_info[0]}"
-			filename="${file_info[1]}"
-
-			# Checks if it is an empty line if so skips over it
-			if [[ "$line" == "" ]]; then
-				continue
-			fi
-
-			if [[ "$file_id" == "$func_arg" ]] || [[ "$filename" == "$file_arg" ]]; then
-				# Found ze file i am zerman now
-				file=$(find "$HOME/.recycle_bin/files/" -name "${file_info[0]}")
-				# File is found now to actually restore it
-				og_file_location="${file_info[2]}"
-				og_file_perms="${file_info[6]}"
-				echo "${file_info[@]}"
-
-				# Change file's name back
-				echo "Changed name from $file to ${file_info[2]%/*}/$filename"
-				mv "$file" "${file%/*}/$filename"
-				file="${file%/*}/$filename"
-				# Restore perms
-				echo "Changed perms to $og_file_perms"
-				chmod "$og_file_perms" "$file"
-				
-				# Move it back
-				echo "Restored file to ${file_info[2]%/*}/"
-				mv "$file" "${file_info[2]%/*}/"
-
-				# Erase corresponding line from file
-				# -i edits file in place ^ to match it to the start of the file so in this case ^{$file_id} anything that starts with that file id
-				# So to explain better What is between / and / is the expression so starts with $file_id and ends is a comma should be deleted
-				# That is what the d in the end does
-				# Links used:
-				# https://www.geeksforgeeks.org/linux-unix/sed-command-in-linux-unix-with-examples/
-				# https://www.geeksforgeeks.org/linux-unix/sed-command-linux-set-2/
-				sed -i "/^${file_id},/d" "$METADATA_FILE"
-			fi
-		done < "$METADATA_FILE"
+	for arg in $@; do
+		restore_data "$arg"
+		echo "Restored $RB_LOCATION to $OG_LOCATION"
+		mv "$RB_LOCATION" "$OG_LOCATION"
 	done
-	
+	return 0
 }
 #############################
 # FUNCTION: display_help
