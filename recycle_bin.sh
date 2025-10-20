@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# HOURS SPENT: 8
+# HOURS SPENT: 11
 # Please do update the counter :)
 # TS WILL ACTUALLY MAKE ME KMS HOLYYY
 
