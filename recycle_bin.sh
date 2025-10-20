@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# HOURS SPENT: 10
-# HOURS SPENT2: ~~ Poe as tuas aqui gui
+# HOURS SPENT: 12
 # Please do update the counter :)
 # TS WILL ACTUALLY MAKE ME KMS HOLYYY
 
@@ -213,8 +212,136 @@ display_help(){
 	echo "-i, init			Creates the recycle bin directory in your working directory"
 	# delete func help
 	echo "-d, delete		Move all files or directories to the recycle bin"
-	# restore_file func help
-	echo "-r, restore		Restore a file or directory"
+}
+#############################
+# FUNCTION: list_recycled
+# DESCRIPTION: lists the recycled files, either in a compact table, or in a more detailed way (by calling list_recycled_detailed)
+# PARAMETERS: $1: if $1="--detailed", calls list_recycled_detailed, else, shows a compact table of recycled files
+# RETURNS: 0 on success
+#############################
+list_recycled() {
+	# calls the detailed version of the function if the arg is "--detailed"
+	echo "dollar1 is: $1"
+	if [[ "$1" == "--detailed" ]]; then
+		list_recycled_detailed
+		return 0
+	fi
+
+	# handles the case where the metadata_file is empty
+	if [[ ! -s "$METADATA_FILE" ]]; then
+    	echo "Recycle bin is empty."
+    	return 0
+	fi
+
+	# compact listing
+	# table header
+	printf "%-5s %-25s %-20s %-10s\n" "ID" "Name" "Date" "Size"
+	printf "%-5s %-25s %-20s %-10s\n" "-----" "-------------------------" "--------------------" "----------"
+	# printing the actual data
+	while IFS=, read -r id name path date size type perm creator; do
+    	readable_size=$(numfmt --to=iec $size) # makes size more readable
+    	printf "%-5s %-25s %-20s %-10s\n" "$id" "$name" "$date" "$readable_size""B"
+	done < "$METADATA_FILE"
+
+	return 0
+}
+
+#############################
+# FUNCTION: list_recycled_detailed
+# DESCRIPTION: called by list_recycled() when "--detailed" is passed as an argument, shows a detailed view of recycled files
+# PARAMETERS: none.
+# RETURNS: 0 on success
+#############################
+list_recycled_detailed() {
+	if [[ ! -s "$METADATA_FILE" ]]; then
+    	echo "Recycle bin is empty."
+    	return 0
+	fi
+
+	item_num=0
+	total_size=0
+	while IFS=, read -r id name path date size type perm creator; do
+    	readable_size=$(numfmt --to=iec $size) # makes size more readable
+    	echo "FILE NAME: $name"
+		echo "ID: $id"
+		echo "PATH: $path"
+		echo "DATE: $date"
+		echo "SIZE: ${size}B"
+		echo "TYPE: $type"
+		echo "PERMISSIONS: $perm"
+		echo "CREATOR: $creator"
+		item_num=$((item_num + 1))
+		total_size=$((total_size + size))
+
+		echo "-----------------------------------------"
+	done < "$METADATA_FILE"
+
+	readable_total_size=$(numfmt --to=iec $total_size)
+	echo "-----------------------------------------"
+	echo "Items in the recycle bin: $item_num"
+	echo "Total size: ${total_size}B"
+
+	return 0file or directory, only takes one argument
+}
+
+####################
+# FUNCTION: search_recycled
+# DESCRIPTION: Searches for files in the recycle bin
+# PARAMETERS: $1 should be a file name or in the format "*.[FILE_EXTENSION]", $2, if equal to "-i", will make search case insensitive
+# RETURNS: 0 on success
+###################
+search_recycled(){
+	if [[ ! -s "$METADATA_FILE" ]]; then
+    	echo "Recycle bin is empty."
+    	return 0
+	fi
+
+	if [[ "$2" == "-i" ]]; then # turns case-insensitive matching on if the argument is present
+		shopt -s nocasematch
+	fi
+
+	passed_arg="$1"
+	files_found=0
+	# compact listing
+	# table header
+	printf "%-5s %-25s %-20s %-10s\n" "ID" "Name" "Date" "Size"
+	printf "%-5s %-25s %-20s %-10s\n" "-----" "-------------------------" "--------------------" "----------"
+	# printing the actual data
+
+	# detect if argument is a file extension search
+	if [[ "$passed_arg" == *.* ]]; then # matches any string containing a dot
+		# extract extension: get everything after last dot
+		file_extension="${passed_arg##*.}"
+		while IFS=, read -r id name path date size type perm creator; do
+			if [[ "$name" == *.$file_extension ]]; then
+				readable_size=$(numfmt --to=iec "$size") # makes size more readable
+				printf "%-5s %-25s %-20s %-10s\n" "$id" "$name" "$date" "$readable_size""B"
+				files_found=$((files_found + 1))
+			fi
+		done < "$METADATA_FILE"
+	else 
+		search_parameter="$passed_arg"
+		while IFS=, read -r id name path date size type perm creator; do
+			if [[ "$name" == *"$search_parameter"* ]]; then
+				readable_size=$(numfmt --to=iec "$size") # makes size more readable
+				printf "%-5s %-25s %-20s %-10s\n" "$id" "$name" "$date" "$readable_size""B"
+				files_found=$((files_found + 1))
+			fi
+		done < "$METADATA_FILE"
+	fi
+
+	if [[ $files_found -eq 0 ]]; then
+		echo "No files matching the search criteria were found."
+	elif [[ $files_found -eq 1 ]]; then
+		echo "Found $files_found file."
+	else 
+		echo "Found $files_found files."
+	fi
+
+	# turns case-insensitive matching off 
+	shopt -u nocasematch
+
+	return 0
 }
 
 #############################
@@ -247,6 +374,16 @@ main(){
 			# help Option
 			# Takes no args because well it is just an help option
 			display_help
+			;;
+		"list"|"-l")
+			# list option
+			# takes one argument, to choose between detailed and not detailed view
+			list_recycled "${@:2}"
+			;;
+		"search"|"-s")
+			# list option
+			# takes one argument, a file name or a file extension
+			search_recycled "${@:2}"
 			;;
 		*)
 			# As no options are give it will be assumed that the option IS the delete option
