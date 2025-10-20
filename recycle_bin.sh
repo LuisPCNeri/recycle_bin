@@ -12,6 +12,8 @@ METADATA_FILE="$RECYCLE_BIN_DIR/metadata.db"
 RB_LOCATION=""
 OG_LOCATION=""
 
+FILE_ID=""
+
 initialyze_recyclebin(){
 	#SHOULD PROBABLY CHECK IF EXISTS PATH WITH THAT NAME
 	#To create the recycle bin directories
@@ -22,6 +24,12 @@ initialyze_recyclebin(){
 	touch "$RECYCLE_BIN_DIR/recyclebin.log"	
 }
 
+generate_unique_id() {
+	local timestamp=$(date +%s%N)
+	local random=$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 6 | head -n 1)
+	echo "${timestamp}_${random}"
+}
+
 ####################
 # FUNCTION: get_file_metadata
 # DESCRIPTION: Gets the metadata from the given file and writes it to the metadata.db file in the recycle bin
@@ -30,7 +38,6 @@ initialyze_recyclebin(){
 ###################
 get_file_metadata(){
 	file="$1"
-	file_id="0"
 	# Get all metadata from each file
         permissions=$(stat -c %a $file)
         file_creator=$(stat -c %U:%G $file)
@@ -47,21 +54,11 @@ get_file_metadata(){
 			file_type='File'
 		fi
 
-        # Write to metadata.db file
-        # Checks if METADATA_FILE is empty and if so gives the first file an ID of 1
-        if [ -s $METADATA_FILE ]; then
-        	file_id=$(tail -1 $METADATA_FILE | cut -d "," -f1)
-                echo "$((file_id+1)),$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> $METADATA_FILE
-                echo "Created data: $((file_id+1)),$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator"
-				mv "$file" "${file%/*}/$((file_id+1))"
-				return "$((file_id + 1))"
-        else
-                file_id="1"
-                echo "$file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> $METADATA_FILE
-                echo "Created data: $file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator"
-				mv "$file" "${file%/*}/$file_id"
-				return "$file_id"
-        fi
+		file_id=$(generate_unique_id)
+        echo "$file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> $METADATA_FILE
+        echo "Created data: $file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator"
+		mv "$file" "${file%/*}/$file_id"
+		FILE_ID="$file_id"
 }
 
 ###############################
@@ -92,14 +89,10 @@ collect_metadata_recursively(){
             	done
 		# Gets the directory's metadata
 		get_file_metadata "$dir"
-		file_id="$?"
-		return "$file_id"
 	else
 		# Gets the metadata from files in the directory
 		get_file_metadata "$file"
-		file_id="$?"
     fi
-	return "$file_id"
 }
 
 ################################
@@ -114,7 +107,7 @@ delete_file(){
 		# Just moves the files from their original location to the recycle bin
 		local dir="$file"
 		collect_metadata_recursively "$file"
-		mv "${file%%/*}/$?" "$RECYCLE_BIN_DIR/files/"
+		mv "${file%%/*}/$FILE_ID" "$RECYCLE_BIN_DIR/files/"
 		echo "Moved $dir from $(realpath $dir) to $RECYCLE_BIN_DIR/files"
 	done
 	return 0
