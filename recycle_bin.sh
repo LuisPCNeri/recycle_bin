@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# HOURS SPENT: 7
+# HOURS SPENT: 8
 # Please do update the counter :)
 # TS WILL ACTUALLY MAKE ME KMS HOLYYY
 
@@ -123,13 +123,14 @@ display_help(){
 }
 #############################
 # FUNCTION: list_recycled
-# DESCRIPTION: $1: if $1="--detailed", shows detailed listing, else, shows a compact table
-# PARAMETERS: $1 is the script option (by default option will be delete) "${$@:2}" will be the function params
+# DESCRIPTION: lists the recycled files, either in a compact table, or in a more detailed way (by calling list_recycled_detailed)
+# PARAMETERS: $1: if $1="--detailed", calls list_recycled_detailed, else, shows a compact table of recycled files
 # RETURNS: 0 on success, -1 on failure
 #############################
 list_recycled() {
 	# calls the detailed version of the function if the arg is "--detailed"
-	if [[ "$2" == "--detailed" ]]; then
+	echo "dollar1 is: $1"
+	if [[ "$1" == "--detailed" ]]; then
 		list_recycled_detailed
 		return 0
 	fi
@@ -146,14 +147,48 @@ list_recycled() {
 	printf "%-5s %-25s %-20s %-10s\n" "-----" "-------------------------" "--------------------" "----------"
 	# printing the actual data
 	while IFS=, read -r id name path date size type perm creator; do
-    	readable_size=$(numfmt --to=iec $size) #
+    	readable_size=$(numfmt --to=iec $size) # makes size more readable
     	printf "%-5s %-25s %-20s %-10s\n" "$id" "$name" "$date" "$readable_size""B"
 	done < "$METADATA_FILE"
 
 	return 0
 }
 
+#############################
+# FUNCTION: list_recycled_detailed
+# DESCRIPTION: called by list_recycled() when "--detailed" is passed as an argument, shows a detailed view of recycled files
+# PARAMETERS: none.
+# RETURNS: 0 on success, -1 on failure
+#############################
 list_recycled_detailed() {
+	if [[ ! -s "$METADATA_FILE" ]]; then
+    	echo "Recycle bin is empty."
+    	return 0
+	fi
+
+	item_num=0
+	total_size=0
+	while IFS=, read -r id name path date size type perm creator; do
+    	readable_size=$(numfmt --to=iec $size) # makes size more readable
+    	echo "FILE NAME: $name"
+		echo "ID: $id"
+		echo "PATH: $path"
+		echo "DATE: $date"
+		echo "SIZE: ${size}B"
+		echo "TYPE: $type"
+		echo "PERMISSIONS: $perm"
+		echo "CREATOR: $creator"
+		item_num=$((item_num + 1))
+		total_size=$((total_size + size))
+
+		echo "-----------------------------------------"
+	done < "$METADATA_FILE"
+
+	readable_total_size=$(numfmt --to=iec $total_size)
+	echo "-----------------------------------------"
+	echo "Items in the recycle bin: $item_num"
+	echo "Total size: ${total_size}B"
+
 	return 0
 }
 
@@ -187,7 +222,7 @@ main(){
 		"list"|"l")
 			# list option
 			# takes one argument, to choose between detailed and not detailed view
-			list_recycled
+			list_recycled "${@:2}"
 			;;
 		*)
 			# As no options are give it will be assumed that the option IS the delete option
