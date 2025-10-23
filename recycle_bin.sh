@@ -57,7 +57,8 @@ get_file_metadata(){
 		file_id=$(generate_unique_id)
         echo "$file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> $METADATA_FILE
         echo "Created data: $file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator"
-		mv "$file" "${file%/*}/$file_id"
+		OG_LOCATION="${original_path%/*}"
+		mv "$file" "${original_path%/*}/$file_id"
 		FILE_ID="$file_id"
 }
 
@@ -107,8 +108,8 @@ delete_file(){
 		# Just moves the files from their original location to the recycle bin
 		local dir="$file"
 		collect_metadata_recursively "$file"
-		mv "${file%%/*}/$FILE_ID" "$RECYCLE_BIN_DIR/files/"
-		echo "Moved $dir from $(realpath $dir) to $RECYCLE_BIN_DIR/files"
+		mv "$OG_LOCATION/$FILE_ID" "$RECYCLE_BIN_DIR/files/"
+		echo "Moved $file from $(realpath $dir) to $RECYCLE_BIN_DIR/files"
 	done
 	return 0
 }
