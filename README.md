@@ -2,7 +2,7 @@
 
 ## Author
 Luís Correia NMEC 125264<br>
-Guilherme Martins NMEC ???
+Guilherme Martins NMEC 125260
 
 ## Description
 This Project consists of a Recycle Bin system for the linux operating system. It should be able to delete, restore, empty, list and search for any files inside it.
