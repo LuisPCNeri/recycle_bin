@@ -13,7 +13,7 @@ To install the Recycle Bin structure run the following command:
 It should be now installed in your user directory under the name ".recycle_bin" with all it's subdirectories.
 
 ## Usage
-When using the ```./recycle_bin.sh``` script the default option will be file deletion, by this we mean, the moving of the specified files to the recycle bin. The default structure for the recycle_bin.sh script is:<br>
+When using the ```./recycle_bin.sh``` script the default option will be list, in such case all contents of the recycle bin will be listed. The default structure for the usage of the recycle_bin.sh script is:<br>
 
 ```./recycle_bin.sh [OPTION] [FILES]..```
 
@@ -46,5 +46,6 @@ Implemented Features:
 
     - File removal or moving to recycle bin
     - File restoral
+    - Empty recycle bin or permanently remove one or multiple files or directories
     - List recycle bin contents and its detailed version
     - Search for specific files or extensions in the recycle bin
