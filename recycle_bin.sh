@@ -14,14 +14,27 @@ OG_LOCATION=""
 
 FILE_ID=""
 
+# Color Codes (optional but recommended)
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
 initialyze_recyclebin(){
 	#SHOULD PROBABLY CHECK IF EXISTS PATH WITH THAT NAME
 	#To create the recycle bin directories
 	mkdir "$RECYCLE_BIN_DIR"
+	echo "Created $RECYCLE_BIN_DIR"
 	mkdir "$RECYCLE_BIN_DIR/files"
+	echo "Created $RECYCLE_BIN_DIR/files"
 	touch "$METADATA_FILE"
+	echo "Created $METADATA_FILE"
 	touch "$RECYCLE_BIN_DIR/config"
+	echo "Created $RECYCLE_BIN_DIR/config"
 	touch "$RECYCLE_BIN_DIR/recyclebin.log"	
+	echo "Created $RECYCLE_BIN_DIR/recyclebin.log"
+
+	echo "ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWNER" > "$METADATA_FILE"
 }
 
 generate_unique_id() {
@@ -72,7 +85,7 @@ collect_metadata_recursively(){
 	local file_id="0"
 	local file="$1"
 	local dir="$1"
-        if ! [[ -f $file || -d $file ]]; then
+        if ! [[ -f "$file" || -d "$file" ]]; then
         	echo "All arguments given MUST be files or directories"
                 echo "$file is NOT a file or directory"         
                 exit -1
@@ -104,12 +117,12 @@ collect_metadata_recursively(){
 ################################
 delete_file(){
 	# Func to move file from source to recycle bin writing its information to the metadata.db file
-	for file in $@; do
+	for file in "$@"; do
 		# Just moves the files from their original location to the recycle bin
 		local dir="$file"
 		collect_metadata_recursively "$file"
 		mv "$OG_LOCATION/$FILE_ID" "$RECYCLE_BIN_DIR/files/"
-		echo "Moved $file from $(realpath $dir) to $RECYCLE_BIN_DIR/files"
+		echo -e "${GREEN}Moved $file from $(realpath $dir) to $RECYCLE_BIN_DIR/files ${NC}" 
 	done
 	return 0
 }
@@ -129,13 +142,41 @@ restore_data(){
 		# Gets all file metadata for each file but it is whatever
 		# Should make $line into an array with the info https://stackoverflow.com/questions/10586153/how-to-split-a-string-into-an-array-in-bash 18/10/25 15:40
 		IFS=',' read -r -a file_info <<< "$line"
-		file_id="${file_info[0]}"
-		filename="${file_info[1]}"
+		local file_id="${file_info[0]}"
+		local filename="${file_info[1]}"
 
 		# Checks if it is an empty line if so skips over it
 		[[ "$line" == "" ]] && continue
 
 		# TODO Check for errors and solve them EX: file already exists in og directory
+
+		# Check if file already exists at destination
+		if [[ -e "${file_info[2]}" ]]; then
+			echo -e "${RED}File already exists at destination.${NC}"
+
+			# Options for user
+			r_options=("Overwrite", "Restore with modified name", "Cancel")
+			PS3="Choose how you want to proceed:"
+
+			# Let user choose what to do in case of the file already existing
+			select option in "${r_options[@]}"; do
+				case $REPLY in
+					1)	echo -e "${YELLOW}${file_info[2]} will be replaced with the restored file.${NC}"; break ;;
+					2)
+						filename+=$(date "+%Y-%m-%d_%H:%M:%S")
+						echo -e "${GREEN}Filename will now be $filename.${NC}"
+						break
+						;;
+					3) 
+						echo -e "${RED}Operation will canceled. All existing changes will NOT be reverted.${NC}"
+						exit 2
+						;;
+					*) echo -e "${RED}Invalid option, please try again.${NC}" ;;
+				esac
+			done < /dev/tty
+		fi
+
+		#TODO Check for existance of parent directories if not well 1 kys 2 create them or whatever not feelig like dooing this one today
 
 		if [[ "$file_id" == "$func_arg" ]] || [[ "$filename" == "$file_arg" ]]; then
 			# A file was found so $any_file_found should now be true
@@ -188,7 +229,7 @@ restore_data(){
 restore_file(){
 	for arg in $@; do
 		restore_data "$arg"
-		echo "Restored $RB_LOCATION to $OG_LOCATION"
+		echo -e "${GREEN}Restored $RB_LOCATION to $OG_LOCATION ${NC}"
 		mv "$RB_LOCATION" "$OG_LOCATION"
 	done
 	return 0
@@ -401,4 +442,4 @@ main(){
 			;;
 	esac
 }
-main $@
+main "$@"
