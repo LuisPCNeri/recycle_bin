@@ -46,3 +46,5 @@ Implemented Features:
 
     - File removal or moving to recycle bin
     - File restoral
+    - List recycle bin contents and its detailed version
+    - Search for specific files or extensions in the recycle bin
