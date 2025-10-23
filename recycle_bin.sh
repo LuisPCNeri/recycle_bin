@@ -7,6 +7,7 @@
 # GLOBAL VARIABLES
 RECYCLE_BIN_DIR="$HOME/.recycle_bin"
 METADATA_FILE="$RECYCLE_BIN_DIR/metadata.db"
+RECYCLEBIN_LOG_FILE="$RECYCLE_BIN_DIR/recyclebin.log"
 
 # Variables to help with file restoration
 RB_LOCATION=""
@@ -69,7 +70,10 @@ get_file_metadata(){
 		fi
 
 		file_id=$(generate_unique_id)
-        echo "$file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> $METADATA_FILE
+        echo "$file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> "$METADATA_FILE"
+		# Log operation in recyclebin.log
+		# echo "FILE: $file. Generated METADATA: $file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> "$RECYCLEBIN_LOG_FILE"
+		
         echo -e "${GREEN}Created data: $file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator ${NC}"
 		OG_LOCATION="${original_path%/*}"
 		mv "$file" "${original_path%/*}/$file_id"
@@ -122,10 +126,13 @@ delete_file(){
 		# Just moves the files from their original location to the recycle bin
 		local dir="$file"
 		collect_metadata_recursively "$file"
-		[[ "$?" == "1" ]] && echo -e "${RED}There was an error, $file was not removed. ${NC}"; continue
+		# [[ "$?" == "1" ]] && echo -e "${RED}There was an error, $file was not removed. ${NC}"; continue
 
 		mv "$OG_LOCATION/$FILE_ID" "$RECYCLE_BIN_DIR/files/"
 		echo -e "${GREEN}Moved $file from $(realpath $dir) to $RECYCLE_BIN_DIR/files ${NC}" 
+		
+		# Log Operation
+		echo "FILE: $file. Moved from $(realpath $dir) to $RECYCLE_BIN_DIR/files" >> "$RECYCLEBIN_LOG_FILE"
 	done
 	return 0
 }
@@ -209,6 +216,9 @@ restore_data(){
 			RB_LOCATION="$file"
 			OG_LOCATION="${file_info[2]%/*}/"
 
+			# Log operations
+			echo "FILE: $file. Restored file name to $filename. Restored perms to $og_file_perms" >> "$RECYCLEBIN_LOG_FILE"
+
 			# Erase corresponding line from file
 			# -i edits file in place ^ to match it to the start of the file so in this case ^{$file_id} anything that starts with that file id
 			# So to explain better What is between / and / is the expression so starts with $file_id and ends is a comma should be deleted
@@ -217,10 +227,13 @@ restore_data(){
 			# https://www.geeksforgeeks.org/linux-unix/sed-command-in-linux-unix-with-examples/
 			# https://www.geeksforgeeks.org/linux-unix/sed-command-linux-set-2/
 			sed -i "/^${file_id},/d" "$METADATA_FILE"
+
+			# Log
+			echo "FILE: $file. Removed file metadata entry (WITH RESTORE)" >> "$RECYCLEBIN_LOG_FILE"
 		fi
 	done < "$METADATA_FILE"
 
-	[[ "$any_file_found" -eq "0" ]] && return 1;
+	# [[ "$any_file_found" -eq "0" ]] && return 1;
 	return 0
 }
 #############################
@@ -234,10 +247,13 @@ restore_file(){
 		restore_data "$arg"
 		
 		# Checks restore_data return value to see if any file matching the name or id was found
-		[[ "$?" == "1" ]] && echo -e "${RED}No file matching \"$arg\" was found. ${NC}"; continue
+		# [[ "$?" == "1" ]] && echo -e "${RED}No file matching \"$arg\" was found. ${NC}"; continue
 
 		echo -e "${GREEN}Restored $RB_LOCATION to $OG_LOCATION ${NC}"
 		mv "$RB_LOCATION" "$OG_LOCATION"
+
+		# Log
+		echo "FILE: $arg. Restored file to it's original location." >> "$RECYCLEBIN_LOG_FILE"
 	done
 
 	return 0
@@ -284,6 +300,9 @@ perm_delete(){
 			sed -i "/^${file_id},/d" "$METADATA_FILE"
 			echo -e "${GREEN}Update the metadata.db file.${NC}"
 
+			# Log
+			echo "FILE: $file. Removed file metadata entry (WITH EMPTY)." >> "$RECYCLEBIN_LOG_FILE"
+
 			# Perm delete the file
 			# Find the file in the recycle bin first
 			del_file=$(find "$HOME/.recycle_bin/files/" -name "${metadata[0]}")
@@ -291,6 +310,9 @@ perm_delete(){
 			# REMOVE
 			rm -rf "$del_file"
 			echo -e "${GREEN}Deleted file $del_file ${NC}"
+
+			# Log
+			echo "FILE: $file. Permanently deleted file." >> "$RECYCLEBIN_LOG_FILE"
 
 			any_file_found="1"
 		fi
@@ -316,7 +338,7 @@ empty_recyclebin(){
 	if [[ "$#" == "0" || "$#" == "1" && "$force_flag" == 1 ]]; then
 		for file in "$RECYCLE_BIN_DIR/files"/*; do
 			perm_delete "$force_flag" "$(basename $file)"
-			[[ "$?" == "1" ]] && echo -e "${RED}No file matching $file was found.${NC}"; continue
+			# [[ "$?" == "1" ]] && echo -e "${RED}No file matching $file was found.${NC}"; continue
 		done
 
 		return 0
@@ -324,7 +346,7 @@ empty_recyclebin(){
 
 	for file in "$args"; do
 		perm_delete "$force_flag" "$file"
-		[[ "$?" == "1" ]] && echo -e "${RED}No file matching $file was found.${NC}"; continue
+		# [[ "$?" == "1" ]] && echo -e "${RED}No file matching $file was found.${NC}"; continue
 	done
 
 	return 0
