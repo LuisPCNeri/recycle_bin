@@ -445,7 +445,7 @@ display_help(){
 #############################
 list_recycled() {
 	# calls the detailed version of the function if the arg is "--detailed"
-	if [[ "$1" == "--detailed" ]]; then
+	if [[ "$1" == "--detailed" || "$1" == "--d"]]; then
 		list_recycled_detailed
 		return 0
 	fi

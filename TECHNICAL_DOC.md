@@ -48,6 +48,9 @@
 ### display_help function:
 > Takes in no arguments. Displays information on all options for the recycle_bin.sh script and a simple explanation on how to use them.
 
+### list_recycled function:
+>
+
 ## Design decisions and rationale
 
 ## Algorithm explanations
