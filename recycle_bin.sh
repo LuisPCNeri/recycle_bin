@@ -453,6 +453,7 @@ list_recycled() {
 	# handles the case where the metadata_file is empty
 	if [[ ! -s "$METADATA_FILE" ]]; then
     	echo "Recycle bin is empty."
+		echo "No header was found in the metadata file!"
     	return 0
 	fi
 
@@ -487,6 +488,7 @@ list_recycled_detailed() {
 	# TODO Still not working twin
 	if [[ ! -s "$METADATA_FILE" ]]; then
     	echo "Recycle bin is empty."
+		echo "No header was found in the metadata file!"
     	return 0
 	fi
 
