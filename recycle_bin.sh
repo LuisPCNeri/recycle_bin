@@ -31,7 +31,7 @@ initialyze_recyclebin(){
 	touch "$METADATA_FILE"
 	echo "Created $METADATA_FILE"
 	touch "$RECYCLE_BIN_DIR/config"
-	echo "Created $RECYCLE_BIN_DIR/config"
+	echo "Created $RECYCLE_BIN_DIR/"
 	touch "$RECYCLE_BIN_DIR/recyclebin.log"	
 	echo "Created $RECYCLE_BIN_DIR/recyclebin.log"
 
@@ -469,6 +469,7 @@ list_recycled() {
 			printf "%-5s %-25s %-20s %-10s\n" "$id" "$name" "$date" "$readable_size""B"
 		fi
 		item_num=$((item_num + 1))
+	item_num=$((item_num - 1))
 	if [[ $item_num -eq 0 ]]; then
     	echo "Recycle bin is empty."
     	return 0
@@ -512,11 +513,12 @@ list_recycled_detailed() {
 		echo "-----------------------------------------"
 	done < "$METADATA_FILE"
 
+	item_num=$((item_num - 1))
 	if [[ $item_num -eq 0 ]]; then
     	echo "Recycle bin is empty."
     	return 0
 	fi
-	item_num=$((item_num - 1))
+	
 	readable_total_size=$(numfmt --to=iec $total_size)
 	echo "-----------------------------------------"
 	echo "Items in the recycle bin: $item_num"
@@ -590,7 +592,7 @@ show_statistics() {
 		dir_size_percent=$((dir_item_size * 100 / total_size))
 		file_size_percent=$((100 - dir_size_percent))
 	fi
-s
+
 	average_file_size=0 # default zero, again
 	if [[ $total_item_num -ne 0 ]]; then # prevent division by zero
 		average_file_size=$((total_size / total_item_num))
