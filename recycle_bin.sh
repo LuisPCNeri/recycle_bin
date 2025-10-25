@@ -22,16 +22,19 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 initialyze_recyclebin(){
-	#SHOULD PROBABLY CHECK IF EXISTS PATH WITH THAT NAME
 	#To create the recycle bin directories
-	mkdir "$RECYCLE_BIN_DIR"
+	mkdir -p "$RECYCLE_BIN_DIR"
 	echo "Created $RECYCLE_BIN_DIR"
 	mkdir "$RECYCLE_BIN_DIR/files"
 	echo "Created $RECYCLE_BIN_DIR/files"
 	touch "$METADATA_FILE"
 	echo "Created $METADATA_FILE"
-	touch "$RECYCLE_BIN_DIR/config"
-	echo "Created $RECYCLE_BIN_DIR/"
+	cat > "$RECYCLE_BIN_DIR/config" <<EOL
+MAX_SIZE_MB=1024
+RETENTION_DAYS=30
+EOL
+	echo "Created $RECYCLE_BIN_DIR/config"
+	echo "MAX_SIZE_MB=1024 ; RETENTION_DAYS=30"
 	touch "$RECYCLE_BIN_DIR/recyclebin.log"	
 	echo "Created $RECYCLE_BIN_DIR/recyclebin.log"
 
@@ -469,7 +472,7 @@ list_recycled() {
 			printf "%-5s %-25s %-20s %-10s\n" "$id" "$name" "$date" "$readable_size""B"
 		fi
 		item_num=$((item_num + 1))
-	item_num=$((item_num - 1))
+	
 	if [[ $item_num -eq 0 ]]; then
     	echo "Recycle bin is empty."
     	return 0
