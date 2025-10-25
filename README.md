@@ -48,4 +48,5 @@ Implemented Features:
     - File restoral
     - Empty recycle bin or permanently remove one or multiple files or directories
     - List recycle bin contents and its detailed version
+    - Statistics display
     - Search for specific files or extensions in the recycle bin
