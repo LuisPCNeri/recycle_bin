@@ -15,13 +15,15 @@ It should be now installed in your user directory under the name ".recycle_bin" 
 ## Usage
 When using the ```./recycle_bin.sh``` script the default option will be list, in such case all contents of the recycle bin will be listed. The default structure for the usage of the recycle_bin.sh script is:<br>
 
-```./recycle_bin.sh [OPTION] [FILES]..```
+```./recycle_bin.sh [OPTION] [FILES]..```<br>
+
+In a lot of the usage options one of the available arguments is the FILE_ID corresponding to the file in the recycle bin. To find it either check the metadata.db file or look into the recycle bin as the name of the files inside it are their corresponding ids.
+
 
 So to use the delete function:
 
     Usage:
 
-    ./recycle_bin.sh [FILES]..
     ./recycle_bin.sh -d [FILES]..
     ./recycle_bin.sh delete [FILES]..
 
@@ -39,6 +41,19 @@ To restores a file to it's original location:
 
     ./recycle_bin.sh -r [FILES]..
     ./recycle_bin.sh restore [FILES]..
+
+To empty the recycle bin or permanently delete one of it's files. Permanently deleting a file or directory will almost always ask the user for confirmation, unless of course they use the --force or -f options as well. <b>To delete a certain file or directory from the recycle bin the arguments passed must be either the file name or the id corresponding to the file in the recycle bin</b>.
+
+    ./recycle_bin.sh -e
+    ./recycle_bin.sh -e [OPTION]
+    ./recycle_bin.sh -e [FILES]..
+    ./recycle_bin.sh -e [OPTION] [FILES]..
+
+    Examples:
+
+    ./recycle_bin.sh -e FileNameToDel.txt
+    ./recycle_bin.sh -e --force FileIdToDel
+    ./recycle_bin.sh -e -f
 
 
 ## Features

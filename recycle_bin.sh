@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# HOURS SPENT: 14
+# HOURS SPENT: 21
 # Please do update the counter :)
 # TS WILL ACTUALLY MAKE ME KMS HOLYYY
 
@@ -90,22 +90,22 @@ collect_metadata_recursively(){
 	local file_id="0"
 	local file="$1"
 	local dir="$1"
-        if ! [[ -f "$file" || -d "$file" ]]; then
-        	echo "All arguments given MUST be files or directories"
-                echo -e "${RED}$file is NOT a file or directory${NC}"         
-                return 1
-        elif [[ "${file##*/}" == ".recycle_bin" ]]; then
-                echo -e "${RED}Must not delete the recycle bin structure.${NC}"
-                return 1
-        fi
-        # Checks if arguments is a directory and if it is NOT empty then removes adds to recycle bin
-        if [[ -d $file ]]; then
-		# Goes through each file in the directory and gets it's metadata
-                for recursive_file in "$file"/*; do
-						# If for some ungodly reason nothing exists in "$file"/* just skip over it
-                        [[ ! -e "$recursive_file" ]] && continue
-                        collect_metadata_recursively $recursive_file
-            	done
+    if ! [[ -f "$file" || -d "$file" ]]; then
+        echo "All arguments given MUST be files or directories"
+            echo -e "${RED}$file is NOT a file or directory${NC}"         
+            return 1
+    elif [[ "${file##*/}" == ".recycle_bin" ]]; then
+            echo -e "${RED}Must not delete the recycle bin structure.${NC}"
+            return 1
+    fi
+    # Checks if arguments is a directory and if it is NOT empty then removes adds to recycle bin
+    if [[ -d $file ]]; then
+	# Goes through each file in the directory and gets it's metadata
+            for recursive_file in "$file"/*; do
+					# If for some ungodly reason nothing exists in "$file"/* just skip over it
+                    [[ ! -e "$recursive_file" ]] && continue
+                    collect_metadata_recursively "$recursive_file"
+            done
 		# Gets the directory's metadata
 		get_file_metadata "$dir"
 	else
@@ -136,13 +136,56 @@ delete_file(){
 	done
 	return 0
 }
+################################
+# FUNCTION: restore_file_data
+# DESCRIPTION: restores file's data without moving it back accordingly to it's metadata
+# PARAMETERS: $1 -> Absolute path to the file in recycle bin, ${@:2} -> file's metadata array
+# RETURNS: 0 on success
+################################
+restore_file_data(){
+	file="$1"
+	id="$2"
+	name="$3"
+	og_location="$4"
+	perms="$8"
+			
+	# Change file's name back
+	echo "Changed name from $file to ${file%/*}/$name"
+	mv "$file" "${file%/*}/$name"
+	file="${file%/*}/$name"
+	# Restore perms
+	echo "Changed perms to $perms"
+	chmod "$perms" "$file"
+				
+	RB_LOCATION="$file"
+	OG_LOCATION="${og_location%/*}/"
+
+	echo -e "${GREEN}Restored $file info.${NC}"
+
+	# Log operations
+	echo "FILE: $file. Restored file name to $name. Restored perms to $perms" >> "$RECYCLEBIN_LOG_FILE"
+
+	# Erase corresponding line from file
+	# -i edits file in place ^ to match it to the start of the file so in this case ^{$file_id} anything that starts with that file id
+	# So to explain better What is between / and / is the expression so starts with $file_id and ends is a comma should be deleted
+	# That is what the d in the end does
+	# Links used:
+	# https://www.geeksforgeeks.org/linux-unix/sed-command-in-linux-unix-with-examples/
+	# https://www.geeksforgeeks.org/linux-unix/sed-command-linux-set-2/
+	sed -i "/^${id},/d" "$METADATA_FILE"
+
+	# Log
+	echo "FILE: $file. Removed file metadata entry (WITH RESTORE)" >> "$RECYCLEBIN_LOG_FILE"
+
+	return 0
+}
 ###########################
-# FUNCTION: restore_data
+# FUNCTION: restore_file_recursive
 # DESCRIPTION: Restores the file to it's original state giving it's permissions and name back
 # PARAMETERS: The name or Id of a file in the recycle bin
 # RETURNS: 0 on success, 1 on failure
 ###########################
-restore_data(){
+restore_file_recursive(){
 	local func_arg="$1"
 	# Flag to determine if any match was found in the metadata file assumed false
 	local any_file_found="0"
@@ -188,53 +231,37 @@ restore_data(){
 
 		#TODO Check for existance of parent directories if not well 1 kys 2 create them or whatever not feelig like dooing this one today
 
-		if [[ "$file_id" == "$func_arg" ]] || [[ "$filename" == "$file_arg" ]]; then
+		if [[ "$file_id" == "$(basename $func_arg)" ]] || [[ "$filename" == "$(basename $func_arg)" ]]; then
 			# A file was found so $any_file_found should now be true
 			any_file_found="1"
+
+			file2="$(find "$RECYCLE_BIN_DIR/files/" -name "$file_id")"
+
 			if [[ "${file_info[5]}" == 'Directory' ]]; then
-				for r_file in "$RECYCLE_BIN_DIR/files/$func_arg"/*; do
+				for r_file in "$file2"/*; do
 					[[ ! -e "$r_file" ]] && continue
-					restore_data "$(basename $r_file)"
+					restore_file_recursive "$r_file"
 				done
+
+				# So to have it get the correct info when it exits the recursion loop
+				# $file_id contains the correct id for the directory we just iterated through
+				# Get the absolute path for the supposed dir
+				local dir="$(find "$RECYCLE_BIN_DIR/files/" -name "$file_id")"
+				# Get the dir's info from the metadata file
+				local info=$(sed -n "/^${file_id},/p" "$METADATA_FILE")
+
+				# Break it into an array to conform with the restorer func
+				IFS=',' read -r -a info_arr <<< "$info"
+
+				# Restore it's data
+				restore_file_data "$dir" "${info_arr[@]}"
+			else
+				restore_file_data "$file2" "${file_info[@]}"
 			fi
-
-			# Found ze file i am zerman now
-			file=$(find "$HOME/.recycle_bin/files/" -name "${file_info[0]}")
-			echo "$file"
-			# File is found now to actually restore it
-			og_file_location="${file_info[2]}"
-			og_file_perms="${file_info[6]}"
-			
-			# Change file's name back
-			echo "Changed name from $file to ${file%/*}/$filename"
-			mv "$file" "${file%/*}/$filename"
-			file="${file%/*}/$filename"
-			# Restore perms
-			echo "Changed perms to $og_file_perms"
-			chmod "$og_file_perms" "$file"
-				
-			RB_LOCATION="$file"
-			OG_LOCATION="${file_info[2]%/*}/"
-
-			# Log operations
-			echo "FILE: $file. Restored file name to $filename. Restored perms to $og_file_perms" >> "$RECYCLEBIN_LOG_FILE"
-
-			# Erase corresponding line from file
-			# -i edits file in place ^ to match it to the start of the file so in this case ^{$file_id} anything that starts with that file id
-			# So to explain better What is between / and / is the expression so starts with $file_id and ends is a comma should be deleted
-			# That is what the d in the end does
-			# Links used:
-			# https://www.geeksforgeeks.org/linux-unix/sed-command-in-linux-unix-with-examples/
-			# https://www.geeksforgeeks.org/linux-unix/sed-command-linux-set-2/
-			sed -i "/^${file_id},/d" "$METADATA_FILE"
-
-			# Log
-			echo "FILE: $file. Removed file metadata entry (WITH RESTORE)" >> "$RECYCLEBIN_LOG_FILE"
 		fi
 	done < "$METADATA_FILE"
 
 	# [[ "$any_file_found" -eq "0" ]] && return 1;
-	return 0
 }
 #############################
 # FUNCTION: restore_file
@@ -244,9 +271,9 @@ restore_data(){
 #############################
 restore_file(){
 	for arg in $@; do
-		restore_data "$arg"
+		restore_file_recursive "$arg"
 		
-		# Checks restore_data return value to see if any file matching the name or id was found
+		# Checks restore_file_recursive return value to see if any file matching the name or id was found
 		# [[ "$?" == "1" ]] && echo -e "${RED}No file matching \"$arg\" was found. ${NC}"; continue
 
 		echo -e "${GREEN}Restored $RB_LOCATION to $OG_LOCATION ${NC}"
