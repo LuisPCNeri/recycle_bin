@@ -461,6 +461,100 @@ list_recycled_detailed() {
 }
 
 ####################
+# FUNCTION: show_statistics
+# DESCRIPTION: Displays statistics regarding the recycle bin, such as total number of items (also broke down by file type), average file size, and oldest and newest items, as well as total storage used 
+# PARAMETERS: none
+# RETURNS: 0 on success
+###################
+
+show_statistics() {
+	total_item_num=0
+	file_item_num=0
+	dir_item_num=0
+
+	file_item_size=0
+	dir_item_size=0 
+	total_size=0
+
+	# for date comparisons
+	oldest_ts=9999999999
+	newest_ts=0
+	oldest_name=""
+	newest_name=""
+	oldest_date=""
+	newest_date=""
+
+	while IFS=, read -r id name path date size type perm creator; do
+		if [[ $total_item_num -gt 0 ]]; then
+			if [[ $type == "Directory" ]]; then # distinction between normal files and directories
+				dir_item_num=$((dir_item_num + 1))
+				dir_item_size=$((dir_item_size + size)) 
+			else
+				file_item_num=$((file_item_num + 1)) 
+				file_item_size=$((file_item_size + size)) 
+			fi
+
+			# convert date to timestamp for comparison
+			ts=$(date -d "$date" +%s 2>/dev/null)
+			if [[ -n "$ts" ]]; then
+				if (( ts < oldest_ts )); then
+					oldest_ts=$ts
+					oldest_name="$name"
+					oldest_date="$date"
+				fi
+				if (( ts > newest_ts )); then
+					newest_ts=$ts
+					newest_name="$name"
+					newest_date="$date"
+				fi
+			fi
+
+		fi
+		total_item_num=$((total_item_num + 1)) 
+
+	done < "$METADATA_FILE"
+
+	total_item_num=$((total_item_num - 1))
+
+	total_size=$((file_item_size + dir_item_size))
+
+	# calculating percentages of the dir and file sizes relative to the total size
+	dir_size_percent=0 # default zero
+	file_size_percent=0 
+	if [[ $total_size -ne 0 ]]; then # prevent division by zero
+		dir_size_percent=$((dir_item_size * 100 / total_size))
+		file_size_percent=$((100 - dir_size_percent))
+	fi
+
+	average_file_size=$((total_size / total_item_num))
+
+	# making sizes more readable
+	readable_average_file_size=$(numfmt --to=iec $average_file_size)
+	readable_total_size=$(numfmt --to=iec $total_size)
+	readable_dir_size=$(numfmt --to=iec $dir_item_size)
+	readable_file_size=$(numfmt --to=iec $file_item_size)
+
+	echo "-------------------------------------------------------------------"
+	echo "RECYCLE BIN STATISTICS"
+	echo "-------------------------------------------------------------------"
+	# information display
+	# number of items
+	echo "Number of items in the recycle bin: ${total_item_num}"
+	echo "By type: directories - ${dir_item_num} ; files - ${file_item_num}"
+	echo "-------------------------------------------------------------------"
+	# size
+	echo "Total storage usage: ${readable_total_size}B"
+	echo "By type: directories - ${readable_dir_size}B (${dir_size_percent}%) ; files - ${readable_file_size}B (${file_size_percent}%)"
+	echo "Average file size: - ${readable_average_file_size}B"
+	echo "-------------------------------------------------------------------"
+	echo "Oldest deleted item: ${oldest_name} (${oldest_date})"
+	echo "Newest deleted item: ${newest_name} (${newest_date})"
+	echo "-------------------------------------------------------------------"
+
+	return 0
+}
+
+####################
 # FUNCTION: search_recycled
 # DESCRIPTION: Searches for files in the recycle bin
 # PARAMETERS: $1 should be a file name or in the format "*.[FILE_EXTENSION]", $2, if equal to "-i", will make search case insensitive
@@ -563,6 +657,10 @@ main(){
 			# list option
 			# takes one argument, a file name or a file extension
 			search_recycled "${@:2}"
+			;;
+		"showstats"|"-ss")
+			# show statistics option
+			show_statistics
 			;;
 		*)
 			# As no options are give it will be assumed that the option IS the delete option
