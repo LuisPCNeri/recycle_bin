@@ -445,7 +445,6 @@ display_help(){
 #############################
 list_recycled() {
 	# calls the detailed version of the function if the arg is "--detailed"
-	echo "dollar1 is: $1"
 	if [[ "$1" == "--detailed" ]]; then
 		list_recycled_detailed
 		return 0
@@ -504,9 +503,9 @@ list_recycled_detailed() {
 			echo "TYPE: $type"
 			echo "PERMISSIONS: $perm"
 			echo "CREATOR: $creator"
-			item_num=$((item_num + 1))
 			total_size=$((total_size + size))
 		fi
+		item_num=$((item_num + 1))
 
 		echo "-----------------------------------------"
 	done < "$METADATA_FILE"
@@ -515,13 +514,13 @@ list_recycled_detailed() {
     	echo "Recycle bin is empty."
     	return 0
 	fi
-	$item_num = $((item_num - 1))
+	item_num=$((item_num - 1))
 	readable_total_size=$(numfmt --to=iec $total_size)
 	echo "-----------------------------------------"
 	echo "Items in the recycle bin: $item_num"
 	echo "Total size: ${total_size}B"
 
-	return 0file or directory, only takes one argument
+	return 0
 }
 
 ####################
