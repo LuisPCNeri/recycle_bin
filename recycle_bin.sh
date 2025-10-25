@@ -126,7 +126,6 @@ delete_file(){
 		# Just moves the files from their original location to the recycle bin
 		local dir="$file"
 		collect_metadata_recursively "$file"
-		# [[ "$?" == "1" ]] && echo -e "${RED}There was an error, $file was not removed. ${NC}"; continue
 
 		mv "$OG_LOCATION/$FILE_ID" "$RECYCLE_BIN_DIR/files/"
 		echo -e "${GREEN}Moved $file from $(realpath $dir) to $RECYCLE_BIN_DIR/files ${NC}" 
@@ -188,7 +187,7 @@ restore_file_data(){
 restore_file_recursive(){
 	local func_arg="$1"
 	# Flag to determine if any match was found in the metadata file assumed false
-	local any_file_found="0"
+	local any_file_found="1"
 
 	while read line;do
 		# Variable names are self explanatory if this calls for a comment i WILL kms
@@ -233,7 +232,7 @@ restore_file_recursive(){
 
 		if [[ "$file_id" == "$(basename $func_arg)" ]] || [[ "$filename" == "$(basename $func_arg)" ]]; then
 			# A file was found so $any_file_found should now be true
-			any_file_found="1"
+			any_file_found="0"
 
 			file2="$(find "$RECYCLE_BIN_DIR/files/" -name "$file_id")"
 
@@ -261,7 +260,7 @@ restore_file_recursive(){
 		fi
 	done < "$METADATA_FILE"
 
-	# [[ "$any_file_found" -eq "0" ]] && return 1;
+	return "$any_file_found"
 }
 #############################
 # FUNCTION: restore_file
@@ -274,7 +273,10 @@ restore_file(){
 		restore_file_recursive "$arg"
 		
 		# Checks restore_file_recursive return value to see if any file matching the name or id was found
-		# [[ "$?" == "1" ]] && echo -e "${RED}No file matching \"$arg\" was found. ${NC}"; continue
+		if [[ "$?" == "1" ]]; then
+			echo -e "${RED}No file matching \"$arg\" was found. ${NC}"
+			continue
+		fi
 
 		echo -e "${GREEN}Restored $RB_LOCATION to $OG_LOCATION ${NC}"
 		mv "$RB_LOCATION" "$OG_LOCATION"
@@ -282,6 +284,35 @@ restore_file(){
 		# Log
 		echo "FILE: $arg. Restored file to it's original location." >> "$RECYCLEBIN_LOG_FILE"
 	done
+
+	return 0
+}
+##############################
+# FUNCTION: del_metadata
+# DESCRIPTION: Deletes a the metadata from a file and perm removes it
+# PARAMETERS: $1 Absolute file path $2 file id in rb
+# RETURNS: 0 on success
+##############################
+del_metadata(){
+	local file="$1"
+	local file_id="$2"
+	# Remove metadata entry from file
+	sed -i "/^${file_id},/d" "$METADATA_FILE"
+	echo -e "${GREEN}Update the metadata.db file.${NC}"
+
+	# Log
+	echo "FILE: $file. Removed file metadata entry (WITH EMPTY)." >> "$RECYCLEBIN_LOG_FILE"
+
+	# Perm delete the file
+	# Find the file in the recycle bin first
+	del_file=$(find "$HOME/.recycle_bin/files/" -name "${file_id}")
+
+	# REMOVE
+	rm -rf "$del_file"
+	echo -e "${GREEN}Deleted file $del_file ${NC}"
+
+	# Log
+	echo "FILE: $file. Permanently deleted file." >> "$RECYCLEBIN_LOG_FILE"
 
 	return 0
 }
@@ -294,15 +325,20 @@ restore_file(){
 perm_delete(){
 	local file="$2"
 	local isForce="$1"
-	local any_file_found="0"
+	local any_file_found="1"
 	local f_line=$(tail -1 "$METADATA_FILE")
+
+	local fn=$(basename "$file")
 
 	# If the --force option was used then it will NOT ask for confirmation
 	if [[ "$isForce" == 0 ]]; then
 		echo -e "${YELLOW}Are you sure you want to delete this file ($file)? (y/n) ${NC}"
 		read response < /dev/tty
 
-		[[ "${response,,}" == "n" ]] && echo -e "${GREEN}Operation was successfully cancelled.";return 2
+		if [[ "${response,,}" == "n" ]]; then 
+			echo -e "${GREEN}Operation was successfully cancelled."
+			return 2
+		fi
 	fi
 
 	while read line; do
@@ -313,35 +349,25 @@ perm_delete(){
 		local file_id="${metadata[0]}"
 		local filename="${metadata[1]}"
 
-		if [[ "$file" == "$file_id" || "$file" == "$file_name" ]]; then
+		if [[ "$fn" == "$file_id" || "$fn" == "$filename" ]]; then
+			file2="$(find "$RECYCLE_BIN_DIR/files/" -name "$file_id")"
+
 			if [[ "${metadata[5]}" == "Directory" ]]; then
-				for rec_file in "$RECYCLE_BIN_DIR/files/$file"/*; do
+				for rec_file in "$file2"/*; do
 					[[ ! -e "$rec_file" ]] && continue
 					# you have already confirmed you want THE DIRECTORY deleted why confirm the rest?
-					perm_delete "1" "$(basename $rec_file)"
+					perm_delete "1" "$rec_file"
 					# perm_delete "0" "$(basename $rec_file)"
 				done
+				
+				local dir="$(find "$RECYCLE_BIN_DIR/files/" -name "$file_id")"
+
+				del_metadata "$dir" "$file_id"
+			else
+				del_metadata "$file" "$file_id"
 			fi
 
-			# Remove metadata entry from file
-			sed -i "/^${file_id},/d" "$METADATA_FILE"
-			echo -e "${GREEN}Update the metadata.db file.${NC}"
-
-			# Log
-			echo "FILE: $file. Removed file metadata entry (WITH EMPTY)." >> "$RECYCLEBIN_LOG_FILE"
-
-			# Perm delete the file
-			# Find the file in the recycle bin first
-			del_file=$(find "$HOME/.recycle_bin/files/" -name "${metadata[0]}")
-
-			# REMOVE
-			rm -rf "$del_file"
-			echo -e "${GREEN}Deleted file $del_file ${NC}"
-
-			# Log
-			echo "FILE: $file. Permanently deleted file." >> "$RECYCLEBIN_LOG_FILE"
-
-			any_file_found="1"
+			any_file_found="0"
 		fi
 	done < "$METADATA_FILE"
 
@@ -365,7 +391,11 @@ empty_recyclebin(){
 	if [[ "$#" == "0" || "$#" == "1" && "$force_flag" == 1 ]]; then
 		for file in "$RECYCLE_BIN_DIR/files"/*; do
 			perm_delete "$force_flag" "$(basename $file)"
-			# [[ "$?" == "1" ]] && echo -e "${RED}No file matching $file was found.${NC}"; continue
+
+			if [[ "$?" == "1" ]]; then
+				echo -e "${RED}No file matching \"$file\" was found. ${NC}"
+				continue
+			fi
 		done
 
 		return 0
@@ -373,7 +403,11 @@ empty_recyclebin(){
 
 	for file in "$args"; do
 		perm_delete "$force_flag" "$file"
-		# [[ "$?" == "1" ]] && echo -e "${RED}No file matching $file was found.${NC}"; continue
+
+		if [[ "$?" == "1" ]]; then
+			echo -e "${RED}No file matching \"$file\" was found. ${NC}"
+			continue
+		fi
 	done
 
 	return 0
@@ -386,6 +420,7 @@ empty_recyclebin(){
 # RETURNS: 0 ig doubt the HELP func fails
 ############################
 display_help(){
+	# TODO Make better lol
 	# Main script explanation HERE
 	echo -e "Usage: ./recycle_bin.sh [OPTION] [FILE]..\nDoes everything a recycle bin should do I hope THIS MUST BE MADE BETTER\n"
 
@@ -450,6 +485,7 @@ list_recycled() {
 # RETURNS: 0 on success
 #############################
 list_recycled_detailed() {
+	# TODO Still not working twin
 	if [[ ! -s "$METADATA_FILE" ]]; then
     	echo "Recycle bin is empty."
     	return 0
@@ -593,8 +629,8 @@ main(){
 			search_recycled "${@:2}"
 			;;
 		*)
-			# As no options are give it will be assumed that the option IS the delete option
-			# Passes ALL arguments given to the script to the delete_file func
+			# As no options are give it will be assumed that the option IS the list option
+			# Passes ALL arguments given to the script to the list
 			list_recycled "$@"
 			;;
 	esac
