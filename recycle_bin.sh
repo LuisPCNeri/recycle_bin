@@ -658,7 +658,7 @@ main(){
 			# takes one argument, a file name or a file extension
 			search_recycled "${@:2}"
 			;;
-		"showstats"|"-ss")
+		"showstats"|"-S")
 			# show statistics option
 			show_statistics
 			;;
