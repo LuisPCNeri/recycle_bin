@@ -445,7 +445,7 @@ display_help(){
 #############################
 list_recycled() {
 	# calls the detailed version of the function if the arg is "--detailed"
-	if [[ "$1" == "--detailed" || "$1" == "--d"]]; then
+	if [[ "$1" == "--detailed" || "$1" == "--d" ]]; then
 		list_recycled_detailed
 		return 0
 	fi
@@ -590,7 +590,7 @@ show_statistics() {
 		dir_size_percent=$((dir_item_size * 100 / total_size))
 		file_size_percent=$((100 - dir_size_percent))
 	fi
-
+s
 	average_file_size=0 # default zero, again
 	if [[ $total_item_num -ne 0 ]]; then # prevent division by zero
 		average_file_size=$((total_size / total_item_num))
