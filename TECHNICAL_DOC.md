@@ -48,6 +48,15 @@
 ### display_help function:
 > Takes in no arguments. Displays information on all options for the recycle_bin.sh script and a simple explanation on how to use them.
 
+### list_recycled function:
+> Takes in an optional argument, "--detailed or "--d". If the argument is present, the function calls the function list_recycled_detailed. If not, the function loops over the lines of the metadata file (ignoring the header) and prints a table containing the IDs, names, dates and sizes of the files in the recycle bin. If the recycle bin is empty, a message is printed to notify the user.
+
+### list_recycled_detailed function:
+> Function is called when the optional argument "--detailed or "--d" is passed to the function list_recycled. The function loops over the lines of the metadata file (ignoring the header) and prints the names, IDs, paths, dates, sizes, types, permissions and creators of the files, separating the information of diferent files with a line of dashes. At the end, the total number of items in the recycle bin and their total size is printed. However, if the recycle bin is empty, a message is printed to notify the user.
+
+### show_statistics function:
+> Takes in no arguments. Loops over the lines of the metadata file (ignoring the header) to collect statistics to print to the terminal: the total number of items in the recycle bin (also displaying how many are directories and how many are files, and their percentages), the total size occupied by items in the recycle bin (also displaying how much size is occupied by directories and files separately, and their percentages), the average file size, and the names of the oldest deleted item and the newest deleted item.
+
 ## Design decisions and rationale
 
 ## Algorithm explanations

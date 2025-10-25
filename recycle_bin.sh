@@ -445,7 +445,7 @@ display_help(){
 #############################
 list_recycled() {
 	# calls the detailed version of the function if the arg is "--detailed"
-	if [[ "$1" == "--detailed" ]]; then
+	if [[ "$1" == "--detailed" || "$1" == "--d"]]; then
 		list_recycled_detailed
 		return 0
 	fi
@@ -453,6 +453,7 @@ list_recycled() {
 	# handles the case where the metadata_file is empty
 	if [[ ! -s "$METADATA_FILE" ]]; then
     	echo "Recycle bin is empty."
+		echo "No header was found in the metadata file!"
     	return 0
 	fi
 
@@ -487,6 +488,7 @@ list_recycled_detailed() {
 	# TODO Still not working twin
 	if [[ ! -s "$METADATA_FILE" ]]; then
     	echo "Recycle bin is empty."
+		echo "No header was found in the metadata file!"
     	return 0
 	fi
 
@@ -589,7 +591,10 @@ show_statistics() {
 		file_size_percent=$((100 - dir_size_percent))
 	fi
 
-	average_file_size=$((total_size / total_item_num))
+	average_file_size=0 # default zero, again
+	if [[ $total_item_num -ne 0 ]]; then # prevent division by zero
+		average_file_size=$((total_size / total_item_num))
+	fi
 
 	# making sizes more readable
 	readable_average_file_size=$(numfmt --to=iec $average_file_size)
