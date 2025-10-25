@@ -4,6 +4,10 @@
 # Please do update the counter :)
 # TS WILL ACTUALLY MAKE ME KMS HOLYYY
 
+# LOAD CONFIG
+# this lets us use $MAX_SIZE_MB and $RETENTION_DAYS
+source "$RECYCLE_BIN_DIR/config"
+
 # GLOBAL VARIABLES
 RECYCLE_BIN_DIR="$HOME/.recycle_bin"
 METADATA_FILE="$RECYCLE_BIN_DIR/metadata.db"
@@ -636,6 +640,7 @@ show_statistics() {
 search_recycled(){
 	if [[ ! -s "$METADATA_FILE" ]]; then
     	echo "Recycle bin is empty."
+		echo "No header was found in the metadata file!"
     	return 0
 	fi
 
@@ -684,7 +689,57 @@ search_recycled(){
 	# turns case-insensitive matching off 
 	shopt -u nocasematch
 
-	return 0
+	return 0"${@:2}"
+}
+
+####################
+# FUNCTION: auto_cleanup
+# DESCRIPTION: Automatically deletes files older than RETENTION_DAYS
+# PARAMETERS: none
+# RETURNS: 0 on success
+###################
+
+auto_cleanup() {
+	timestamp_now=$(date +%s) # fetches current time
+	time_threshold=$((RETENTION_DAYS * 24 * 60 * 60)) # converts $RETENTION_DAYS to seconds
+
+	 if [[ ! -s "$METADATA_FILE" ]]; then
+        echo "Recycle bin is empty."
+		echo "No header was found in the metadata file!"
+        return 0
+    fi
+
+	item_num=0
+	deleted_items_num=0
+	total_deleted_size=0
+	while IFS=, read -r id name path date size type perm creator; do
+		if [[ $item_num -gt 0 ]]; then
+			file_date_timestamp=$(date -d "$date" +%s 2>/dev/null) # converts file date to a timestamp
+			if (( timestamp_now - file_date_timestamp > time_threshold )); then # if the file date is older than $RETENTION_DAYS
+				total_deleted_size=$((total_deleted_size + size))
+				deleted_items_num=$((deleted_items_num + 1))
+            	perm_delete "$force_flag" "$name" # force perma-deletes the file
+        	fi
+		fi
+		item_num=$((item_num + 1))
+
+	done < "$METADATA_FILE"
+
+	item_num=$((item_num - 1))
+	if [[ $item_num -eq 0 ]]; then
+		echo "Recycle bin is empty."
+		return 0
+	fi
+
+	readable_deleted_size=$(numfmt --to=iec "$total_deleted_size")
+	# displaying the auto-cleanup's info summary
+	echo "-------------------------------------------------------------------"
+	echo "Auto-cleanup completed."
+	echo "${deleted_items_num} files have been deleted."
+	echo "${readable_deleted_size}B of size has been freed up."
+	echo "-------------------------------------------------------------------"
+
+	return 0;
 }
 
 #############################
