@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# HOURS SPENT: 21
+# HOURS SPENT: 22
 # Please do update the counter :)
 # TS WILL ACTUALLY MAKE ME KMS HOLYYY
 
@@ -72,7 +72,7 @@ get_file_metadata(){
 		file_id=$(generate_unique_id)
         echo "$file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> "$METADATA_FILE"
 		# Log operation in recyclebin.log
-		# echo "FILE: $file. Generated METADATA: $file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> "$RECYCLEBIN_LOG_FILE"
+		echo "FILE: $file. Generated METADATA: $file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator" >> "$RECYCLEBIN_LOG_FILE"
 		
         echo -e "${GREEN}Created data: $file_id,$file_name,$original_path,$deletion_time_stamp,$file_size,$file_type,$permissions,$file_creator ${NC}"
 		OG_LOCATION="${original_path%/*}"
