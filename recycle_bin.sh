@@ -591,7 +591,10 @@ show_statistics() {
 		file_size_percent=$((100 - dir_size_percent))
 	fi
 
-	average_file_size=$((total_size / total_item_num))
+	average_file_size=0 # default zero, again
+	if [[ $total_item_num -ne 0 ]]; then # prevent division by zero
+		average_file_size=$((total_size / total_item_num))
+	fi
 
 	# making sizes more readable
 	readable_average_file_size=$(numfmt --to=iec $average_file_size)
